@@ -458,9 +458,30 @@ set -g @resurrect-restore 'R'
 
 # (shaun): reduce interval of saving from 15 minutes to two hours
 # set -g @continuum-save-interval '120'
-# (shaun): update: auto save disabled, takes way too long/eats cpu
-# instead, run ~/.tmux/plugins/tmux-resurrect/scripts/save.sh
-set -g @continuum-save-interval '0'
+# (shaun): auto save was disabled ('0'): saves took ~3 min and ate cpu. Fixed by the 'none' save command
+# strategy below (a save now takes ~15s / ~5 CPU-s), so re-enabled. Value is in MINUTES ('0' disables).
+# (manual save still works: ~/.tmux/plugins/tmux-resurrect/scripts/save.sh)
+set -g @continuum-save-interval '60'
+
+# (shaun): window names. oh-my-tmux sets `setw -g automatic-rename on` (renames windows after the running
+# program: bash, claude.exe, ...). Turn it off so restored windows keep the names that were saved.
+setw -g automatic-rename off
+set -g allow-rename off
+
+# (shaun): resume Claude Code sessions after a tmux-resurrect restore (scripts: ~/.config/tmux-claude-resume/)
+#   save.sh    - after every resurrect save, snapshots pane -> Claude session id
+#   restore.sh - after a restore, types `claude --resume <id> <original flags>` into the restored panes
+# @claude-resume-mode: 'run' = also press Enter (staggered), 'type' = type the command, leave Enter to me
+set -g @resurrect-hook-post-save-all    '/Users/shaun/.config/tmux-claude-resume/save.sh'
+set -g @resurrect-hook-post-restore-all '/Users/shaun/.config/tmux-claude-resume/restore.sh >> /Users/shaun/.config/tmux-claude-resume/restore.log 2>&1 &'
+set -g @claude-resume-mode 'run'
+
+# (shaun): resurrect saves took ~3 minutes and pegged the CPU: the default command-capture strategy runs
+# `ps` once per pane (184 panes x ~0.9s). Use the no-op strategy instead (save: ~195s -> ~12s). It loses
+# nothing today because the capture only ever sees `-bash` (reattach-to-user-namespace wrapper). The file
+# is ~/.tmux/plugins/tmux-resurrect/save_command_strategies/none.sh (outside dotfiles; recreate it on a new
+# machine). See its comments for how to actually restore programs like nvim in future.
+set -g @resurrect-save-command-strategy 'none'
 
 # -- custom variables ----------------------------------------------------------
 
