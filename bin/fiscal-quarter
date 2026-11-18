@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Fiscal year/quarter for a given date (default: today).
+# Fiscal year starts Feb 1 and is named for the calendar year it ends in
+# (e.g. FY2027 = Feb 1 2026 - Jan 31 2027).
+# Usage: ./fiscal-quarter.sh [YYYY-MM-DD]
+
+set -euo pipefail
+
+input_date="${1:-$(date +%Y-%m-%d)}"
+
+month=$(date -j -f "%Y-%m-%d" "$input_date" +%-m 2>/dev/null || date -d "$input_date" +%-m)
+year=$(date -j -f "%Y-%m-%d" "$input_date" +%-Y 2>/dev/null || date -d "$input_date" +%-Y)
+
+if [ "$month" -eq 1 ]; then
+  fy=$year
+else
+  fy=$((year + 1))
+fi
+
+fiscal_month=$(( (month - 2 + 12) % 12 + 1 ))
+quarter=$(( (fiscal_month - 1) / 3 + 1 ))
+
+echo "FY${fy}-Q${quarter}"
