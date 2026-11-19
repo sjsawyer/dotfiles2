@@ -6,7 +6,7 @@
 # Columns: session  window  pane  sessionId  cwd  last_access  flags
 #   last_access = unix seconds the pane was last used: the newer of its @focus stamp (set by the pane-focus-in
 #   hook) and Claude's last real activity (updatedAt, ignored if within 10s of startedAt, i.e. just a resume).
-#   restore.sh writes it back to @focus so the C-a C-e switcher keeps its order across a restart. 0 = never.
+#   restore.sh writes it back to @focus so the C-a C-n switcher keeps its order across a restart. 0 = never.
 # A snapshot with zero sessions never replaces a previous one (e.g. a save on a fresh, empty server).
 #
 # Speed: everything is joined in ONE awk pass (ps table + tmux panes + one bulk jq read), so cost scales

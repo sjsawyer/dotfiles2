@@ -21,7 +21,7 @@ mkdir -p ~/.config/tmux-claude-resume
 ln -s -f ~/dotfiles2/tmux/claude-resume/save.sh ~/.config/tmux-claude-resume/save.sh
 ln -s -f ~/dotfiles2/tmux/claude-resume/restore.sh ~/.config/tmux-claude-resume/restore.sh
 
-# Claude-session switcher popup (C-a C-e; needs python3 and fzf)
+# Claude-session switcher popup (C-a C-n; needs python3 and fzf)
 mkdir -p ~/.config/tmux-claude-switcher
 ln -s -f ~/dotfiles2/tmux/claude-switcher/list.py ~/.config/tmux-claude-switcher/list.py
 ```
@@ -52,12 +52,12 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
 - Claude resume (`claude-resume/`): `save.sh` runs after every resurrect save and records which Claude Code session is
   in which pane (from `~/.claude/sessions/<pid>.json`; needs `jq`). `restore.sh` runs after a restore and types
   `claude --resume <id>` plus the original flags into those panes, and
-  puts each pane's saved last-access time back into `@focus` (for the `C-a C-e` switcher). `@claude-resume-mode`: `run` (default, presses Enter,
+  puts each pane's saved last-access time back into `@focus` (for the `C-a C-n` switcher). `@claude-resume-mode`: `run` (default, presses Enter,
   staggered) or `type` (leaves Enter to you). Panes that are busy, gone, or whose directory is missing are skipped.
   Logs: `~/.config/tmux-claude-resume/{save,restore}.log`. Preview a restore with `DRY_RUN=1 ~/.config/tmux-claude-resume/restore.sh`.
 - Switcher popups (centred `display-popup` + fzf, so they don't un-zoom the window; tmux >= 3.3):
   - `C-a C-j`: sessions, most recently used first.
-  - `C-a C-e`: open Claude Code sessions, most recently accessed first. Each row is `● busy / ○ idle`, the session's
+  - `C-a C-n`: open Claude Code sessions, most recently accessed first. Each row is `● busy / ○ idle`, the session's
     ai-title (from its transcript; falls back to Claude's own name), `session:window.pane` and the directory.
     Fuzzy-matches all of that; Enter jumps straight to the pane (zoom kept). `claude-switcher/list.py` builds the list
     in ~0.1s: one `tmux list-panes -a`, `~/.claude/sessions/<pid>.json` for pane/status/last activity, and only the

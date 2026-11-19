@@ -37,7 +37,7 @@ fix_cols() {
 }
 
 # Pass 1 (fast, before the staggered resumes): put each pane's saved last-access time back into @focus, so the
-# Claude switcher (C-a C-e) keeps its order across a restart. Never overwrites a newer stamp.
+# Claude switcher (C-a C-n) keeps its order across a restart. Never overwrites a newer stamp.
 stamped=0
 while IFS=$'\t' read -r s w p sid cwd last flags; do
   [ -n "$sid" ] || continue

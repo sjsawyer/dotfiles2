@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """List the Claude Code sessions running in tmux panes, most recently active first, for fzf.
 
-Used by the C-a C-e popup in tmux.conf.local. One line per session:
+Used by the C-a C-n popup in tmux.conf.local. One line per session:
 
     <pane_id>  <status> <title>  <session:window.pane>  <cwd>
 
