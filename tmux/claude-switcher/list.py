@@ -8,8 +8,13 @@ Used by the C-a C-e popup in tmux.conf.local. One line per session:
   - status: a yellow ● while Claude is working, ○ when idle.
   - title:  the latest ai-title from the session transcript (what `claude --resume` shows); falls back to
             Claude's own session name (cwd + hash) when the transcript has none yet.
-  - order:  `updatedAt` from ~/.claude/sessions/<pid>.json, newest first. That is Claude's last activity
-            in the session, not the last time you looked at the pane.
+  - order:  most recently accessed first. "Accessed" is the newer of
+              1. when you last focused the pane: the @focus pane option, stamped by the pane-focus-in hook in
+                 tmux.conf.local and carried across restarts by claude-resume/save.sh + restore.sh; and
+              2. Claude's last real activity: `updatedAt` in ~/.claude/sessions/<pid>.json, but only when it is
+                 more than 10s after `startedAt`. A session that was merely (re)started, e.g. resumed by a tmux
+                 restore, has updatedAt ~= startedAt; that is not activity and is ignored.
+            Sessions with neither sort last, alphabetically by title.
 
 Cheap on purpose: one `tmux list-panes -a`, one small JSON read per session, and only the TAIL of each
 transcript (the latest ai-title is always near the end). Titles are cached per transcript (mtime + size)
@@ -38,20 +43,35 @@ TAIL_BYTES = (64 * 1024, 1024 * 1024)   # try the last 64KB, then the last 1MB, 
 TITLE_KEY = b'"aiTitle":"'
 PANE_RE = re.compile(r"%\d+$")
 ID_RE = re.compile(r"^[0-9A-Za-z-]+$")
+RESUME_GRACE_MS = 10_000                 # updatedAt this close to startedAt means "just (re)started", not activity
 TITLE_MAX = 50
 CWD_MAX = 36
 BUSY = "\033[33m●\033[0m"
 IDLE = "○"
 
 
-def pane_locations():
-    """{pane_id: 'session:window.pane'} for every pane on this tmux server."""
+def pane_info():
+    """{pane_id: ('session:window.pane', last_focus_seconds)} for every pane on this tmux server."""
     r = subprocess.run(
-        TMUX + ["list-panes", "-a", "-F", "#{pane_id}\t#{session_name}:#{window_index}.#{pane_index}"],
+        TMUX + ["list-panes", "-a", "-F",
+                "#{pane_id}\t#{session_name}:#{window_index}.#{pane_index}\t#{@focus}"],
         capture_output=True, text=True)
     if r.returncode != 0:
         return {}
-    return dict(line.split("\t", 1) for line in r.stdout.splitlines() if "\t" in line)
+    info = {}
+    for line in r.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            focus = parts[2] if len(parts) > 2 and parts[2].isdigit() else "0"
+            info[parts[0]] = (parts[1], int(focus))
+    return info
+
+
+def real_activity(s):
+    """Claude's last real activity in seconds, or 0 if updatedAt only reflects the session (re)starting."""
+    updated = int(s.get("updatedAt") or 0)
+    started = int(s.get("startedAt") or 0)
+    return updated // 1000 if updated - started > RESUME_GRACE_MS else 0
 
 
 def alive(pid):
@@ -148,8 +168,8 @@ def short_cwd(cwd):
 
 
 def main():
-    locations = pane_locations()
-    if not locations:
+    panes = pane_info()
+    if not panes:
         return 0
 
     cache = load_cache()
@@ -160,8 +180,9 @@ def main():
             with open(path) as fh:
                 s = json.load(fh)
             pane = str(s.get("tmux", "")).rsplit(".", 1)[-1]
-            if not PANE_RE.match(pane) or pane not in locations or not alive(s.get("pid")):
+            if not PANE_RE.match(pane) or pane not in panes or not alive(s.get("pid")):
                 continue
+            location, focus = panes[pane]
 
             title = None
             tpath = transcript_path(s.get("cwd"), s.get("sessionId"))
@@ -177,10 +198,10 @@ def main():
 
             rows.append({
                 "pane": pane,
-                "updated": int(s.get("updatedAt") or 0),
+                "accessed": max(focus, real_activity(s)),
                 "busy": s.get("status") == "busy",
                 "title": clean(title) or clean(s.get("name")) or "(untitled)",
-                "loc": locations[pane],
+                "loc": location,
                 "cwd": short_cwd(s.get("cwd")),
             })
         except (OSError, ValueError, TypeError, AttributeError):
@@ -189,7 +210,7 @@ def main():
     if fresh != cache:
         save_cache(fresh)                     # also drops entries for transcripts that are gone
 
-    rows.sort(key=lambda r: (-r["updated"], r["title"].lower()))
+    rows.sort(key=lambda r: (-r["accessed"], r["title"].lower()))
     title_w = min(TITLE_MAX, max((len(r["title"]) for r in rows), default=0))
     loc_w = max((len(r["loc"]) for r in rows), default=0)
     out = []

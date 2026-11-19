@@ -51,17 +51,21 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
   capture only ever saw `-bash`. The script's comments explain how to restore programs like nvim in future.
 - Claude resume (`claude-resume/`): `save.sh` runs after every resurrect save and records which Claude Code session is
   in which pane (from `~/.claude/sessions/<pid>.json`; needs `jq`). `restore.sh` runs after a restore and types
-  `claude --resume <id>` plus the original flags into those panes. `@claude-resume-mode`: `run` (default, presses Enter,
+  `claude --resume <id>` plus the original flags into those panes, and
+  puts each pane's saved last-access time back into `@focus` (for the `C-a C-e` switcher). `@claude-resume-mode`: `run` (default, presses Enter,
   staggered) or `type` (leaves Enter to you). Panes that are busy, gone, or whose directory is missing are skipped.
   Logs: `~/.config/tmux-claude-resume/{save,restore}.log`. Preview a restore with `DRY_RUN=1 ~/.config/tmux-claude-resume/restore.sh`.
 - Switcher popups (centred `display-popup` + fzf, so they don't un-zoom the window; tmux >= 3.3):
   - `C-a C-j`: sessions, most recently used first.
-  - `C-a C-e`: open Claude Code sessions, most recently active first. Each row is `● busy / ○ idle`, the session's
+  - `C-a C-e`: open Claude Code sessions, most recently accessed first. Each row is `● busy / ○ idle`, the session's
     ai-title (from its transcript; falls back to Claude's own name), `session:window.pane` and the directory.
     Fuzzy-matches all of that; Enter jumps straight to the pane (zoom kept). `claude-switcher/list.py` builds the list
     in ~0.1s: one `tmux list-panes -a`, `~/.claude/sessions/<pid>.json` for pane/status/last activity, and only the
-    tail of each transcript for the title (cached in `~/.cache/tmux-claude-switcher/`). "Last activity" is Claude's
-    last update, not when you last viewed the pane. It relies on Claude Code's internal session files, so a Claude
-    update could break it (unparsable sessions are skipped).
+    tail of each transcript for the title (cached in `~/.cache/tmux-claude-switcher/`). "Accessed" is the newer of
+    when you last focused the pane (a `pane-focus-in` hook stamps the `@focus` pane option; needs `focus-events on`)
+    and Claude's last real activity (`updatedAt`, ignored when it only reflects a resume). The stamp is saved with the
+    Claude snapshot and put back on restore, so the order survives a tmux restart (as of the last save: hourly or
+    manual). Never-used sessions sort last. It relies on Claude Code's internal session files, so a Claude update
+    could break it (unparsable sessions are skipped).
 - Window names: `automatic-rename` is off (oh-my-tmux turns it on), so restored windows keep their saved names.
 - The status bar uses custom variables (`shaundiskfree`, `shauntimeutc`, `shaunfiscalquarter`) defined at the bottom of `tmux.conf.local`.

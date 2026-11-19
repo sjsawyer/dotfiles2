@@ -29,9 +29,36 @@ say "restoring from $(basename "$map") mode=$MODE dry=$DRY"
 
 [ "$DRY" = 1 ] || sleep "${CLAUDE_RESUME_STARTUP_WAIT:-2}"   # let restored shells come up
 
-ok=0; skip=0
-while IFS=$'\t' read -r s w p sid cwd flags; do
+# Snapshot rows: session window pane sessionId cwd last_access flags. Older snapshots have no last_access column,
+# so then the "last_access" field actually holds the flags: shuffle them back.
+fix_cols() {
+  if [ -n "${last:-}" ] && ! [[ "$last" =~ ^[0-9]+$ ]]; then flags="$last${flags:+ $flags}"; last=0; fi
+  last="${last:-0}"
+}
+
+# Pass 1 (fast, before the staggered resumes): put each pane's saved last-access time back into @focus, so the
+# Claude switcher (C-a C-e) keeps its order across a restart. Never overwrites a newer stamp.
+stamped=0
+while IFS=$'\t' read -r s w p sid cwd last flags; do
   [ -n "$sid" ] || continue
+  fix_cols
+  [ "$last" -gt 0 ] || continue
+  pane="$(tmux display-message -p -t "=$s:$w.$p" '#{pane_id}' 2>/dev/null)" || pane=""
+  [ -n "$pane" ] || continue
+  have="$(tmux show-options -pqv -t "$pane" @focus 2>/dev/null)"
+  if ! [[ "$have" =~ ^[0-9]+$ ]] || [ "$have" -lt "$last" ]; then
+    if [ "$DRY" = 1 ]; then say "would set @focus=$last on $s:$w.$p"
+    else tmux set-option -p -t "$pane" @focus "$last"; fi
+    stamped=$((stamped+1))
+  fi
+done < "$map"
+say "last-access stamps restored: $stamped"
+
+# Pass 2: resume the Claude sessions.
+ok=0; skip=0
+while IFS=$'\t' read -r s w p sid cwd last flags; do
+  [ -n "$sid" ] || continue
+  fix_cols
   tgt="=$s:$w.$p"
   pane="$(tmux display-message -p -t "$tgt" '#{pane_id}' 2>/dev/null)" || pane=""
   if [ -z "$pane" ]; then say "skip $s:$w.$p - pane not found"; skip=$((skip+1)); continue; fi
