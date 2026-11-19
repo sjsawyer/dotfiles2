@@ -57,7 +57,12 @@ bind C-k switch-client -l
 # (shaun) fuzzy session switching (requires fzf)
 # bind-key C-j split-window -v "tmux list-sessions | sed -E 's/:.*$//' | grep -v \"^$(tmux display-message -p '#S')\$\" | fzf --reverse | xargs tmux switch-client -t"
 # Updated to sort by last use
-bind-key C-j split-window -v "tmux list-sessions -F '#{session_activity} #{session_name}' |  sort -r -n -k1 |  fzf --reverse --with-nth 2.. --tiebreak=index | awk '{print $2}' | xargs tmux switch-client -t"
+bind-key C-j display-popup -E -w 60% -h 50% -T ' switch session ' "tmux list-sessions -F '#{session_activity} #{session_name}' |  sort -r -n -k1 |  fzf --reverse --color=gutter:-1 --with-nth 2.. --tiebreak=index | awk '{print $2}' | xargs tmux switch-client -t"
+# Popup (not a split) so it centres over the window and doesn't un-zoom a zoomed pane.
+# --color=gutter:-1 drops fzf's grey left gutter. Popup colours follow the terminal (Solarized) instead of
+# tmux's themedarkgrey default.
+set -g popup-style 'bg=default,fg=default'
+set -g popup-border-style 'bg=default,fg=#586e75'
 
 # (shaun) don't clear history on C-L
 bind -n C-l send-keys C-l \; run 'sleep 0.2'
