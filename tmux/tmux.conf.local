@@ -481,6 +481,10 @@ set -g @plugin 'tmux-plugins/tmux-continuum'
 #set -g @plugin 'tmux-plugins/tmux-yank'
 
 set -g @continuum-restore 'on'
+# (shaun): continuum only auto-restores if its plugin loads within this many seconds of the server starting
+# (default 10). oh-my-tmux loads plugins only AFTER its git update step, which took 13s once and silently
+# skipped the auto-restore. Generous margin; a later config reload isn't affected unless within this window.
+set -g @continuum-restore-max-delay '60'
 # shaun: change resurrect default binding from 'r' to 'R' (so it doesn't conflict with reload)
 set -g @resurrect-restore 'R'
 
