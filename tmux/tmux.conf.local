@@ -166,6 +166,19 @@ tmux_conf_theme_message_command_fg="$tmux_conf_theme_colour_5"
 tmux_conf_theme_message_command_bg="$tmux_conf_theme_colour_1"
 tmux_conf_theme_message_command_attr="bold"
 
+# (shaun): width=100%,fill=<bg> keep prompts/messages (rename window, command prompt) full width on tmux >= 3.7; there
+# they are otherwise drawn as a small box over the left of the status bar. width alone is only a maximum; the area is
+# cleared only when the style also has a fill colour (see prompt_draw() in tmux's prompt.c). Both are read from
+# message-style, and fill must be the matching background colour, so the command style carries its own fill.
+# Guarded by feature, not by version string: the message-format option was added in tmux 3.7 together with this width
+# handling, and on older tmux `#{message-format}` expands to nothing so the block is skipped. (Older tmux rejects
+# `width=` in a style, and oh-my-tmux applies all theme styles in one chained command, so an invalid style would
+# skip the rest of the theme.)
+%if "#{message-format}"
+tmux_conf_theme_message_attr="bold,width=100%,fill=$tmux_conf_theme_message_bg"
+tmux_conf_theme_message_command_attr="bold,width=100%,fill=$tmux_conf_theme_message_command_bg"
+%endif
+
 # window modes style
 tmux_conf_theme_mode_fg="$tmux_conf_theme_colour_1"
 tmux_conf_theme_mode_bg="$tmux_conf_theme_colour_5"
