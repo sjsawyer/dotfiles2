@@ -67,7 +67,7 @@ set -g popup-border-style 'bg=default,fg=#586e75'
 # (shaun) fuzzy switcher for open Claude Code sessions (C-a C-n): same popup, listed by last activity.
 # Each line is "<status> <ai title>  <session:win.pane>  <cwd>"; Enter jumps to that pane (-Z keeps zoom).
 # claude-switcher/list.py prints the lines (needs python3 + fzf); field 1 (the pane id) is hidden from fzf.
-bind-key C-n display-popup -E -w 70% -h 60% -T ' claude sessions ' "~/.config/tmux-claude-switcher/list.py | fzf --ansi --reverse --color=gutter:-1 --with-nth 2.. --tiebreak=index | awk '{print $1}' | xargs -r tmux switch-client -Zt"
+bind-key C-n display-popup -E -w 70% -h 60% -T ' 🤖 claude sessions ' "~/.config/tmux-claude-switcher/list.py | fzf --ansi --reverse --color=gutter:-1 --with-nth 2.. --tiebreak=index | awk '{print $1}' | xargs -r tmux switch-client -Zt"
 # Stamp every pane with the time it was last focused (@focus, unix seconds) so that switcher can order by "last
 # accessed". Wall-clock date, because tmux's client_activity goes stale on focus changes that aren't keypresses.
 # Needs focus-events on (oh-my-tmux sets it). The stamp is saved/restored with the Claude snapshot (claude-resume/).
