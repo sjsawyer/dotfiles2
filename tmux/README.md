@@ -20,6 +20,10 @@ mkdir -p ~/bin && ln -s -f ~/dotfiles2/bin/fiscal-quarter ~/bin/fiscal-quarter
 mkdir -p ~/.config/tmux-claude-resume
 ln -s -f ~/dotfiles2/tmux/claude-resume/save.sh ~/.config/tmux-claude-resume/save.sh
 ln -s -f ~/dotfiles2/tmux/claude-resume/restore.sh ~/.config/tmux-claude-resume/restore.sh
+
+# Claude-session switcher popup (C-a C-e; needs python3 and fzf)
+mkdir -p ~/.config/tmux-claude-switcher
+ln -s -f ~/dotfiles2/tmux/claude-switcher/list.py ~/.config/tmux-claude-switcher/list.py
 ```
 
 Start `tmux`. tpm installs tmux-resurrect and tmux-continuum on first launch (needs network + git).
@@ -50,5 +54,14 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
   `claude --resume <id>` plus the original flags into those panes. `@claude-resume-mode`: `run` (default, presses Enter,
   staggered) or `type` (leaves Enter to you). Panes that are busy, gone, or whose directory is missing are skipped.
   Logs: `~/.config/tmux-claude-resume/{save,restore}.log`. Preview a restore with `DRY_RUN=1 ~/.config/tmux-claude-resume/restore.sh`.
+- Switcher popups (centred `display-popup` + fzf, so they don't un-zoom the window; tmux >= 3.3):
+  - `C-a C-j`: sessions, most recently used first.
+  - `C-a C-e`: open Claude Code sessions, most recently active first. Each row is `● busy / ○ idle`, the session's
+    ai-title (from its transcript; falls back to Claude's own name), `session:window.pane` and the directory.
+    Fuzzy-matches all of that; Enter jumps straight to the pane (zoom kept). `claude-switcher/list.py` builds the list
+    in ~0.1s: one `tmux list-panes -a`, `~/.claude/sessions/<pid>.json` for pane/status/last activity, and only the
+    tail of each transcript for the title (cached in `~/.cache/tmux-claude-switcher/`). "Last activity" is Claude's
+    last update, not when you last viewed the pane. It relies on Claude Code's internal session files, so a Claude
+    update could break it (unparsable sessions are skipped).
 - Window names: `automatic-rename` is off (oh-my-tmux turns it on), so restored windows keep their saved names.
 - The status bar uses custom variables (`shaundiskfree`, `shauntimeutc`, `shaunfiscalquarter`) defined at the bottom of `tmux.conf.local`.

@@ -64,6 +64,11 @@ bind-key C-j display-popup -E -w 60% -h 50% -T ' switch session ' "tmux list-ses
 set -g popup-style 'bg=default,fg=default'
 set -g popup-border-style 'bg=default,fg=#586e75'
 
+# (shaun) fuzzy switcher for open Claude Code sessions (C-a C-e): same popup, listed by last activity.
+# Each line is "<status> <ai title>  <session:win.pane>  <cwd>"; Enter jumps to that pane (-Z keeps zoom).
+# claude-switcher/list.py prints the lines (needs python3 + fzf); field 1 (the pane id) is hidden from fzf.
+bind-key C-e display-popup -E -w 70% -h 60% -T ' claude sessions ' "~/.config/tmux-claude-switcher/list.py | fzf --ansi --reverse --color=gutter:-1 --with-nth 2.. --tiebreak=index | awk '{print $1}' | xargs -r tmux switch-client -Zt"
+
 # (shaun) don't clear history on C-L
 bind -n C-l send-keys C-l \; run 'sleep 0.2'
 
