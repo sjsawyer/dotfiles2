@@ -8,8 +8,9 @@ Used by the C-a C-n popup in tmux.conf.local. One line per session:
   - status: a yellow ● while Claude is working, ○ when idle.
   - age:    how long ago the session was last accessed (the same value the list is ordered by, see below):
             now, 7m, 3h, 2d; "-" when there is no record at all. fzf doesn't search it (--nth 3.. in the binding).
-  - title:  the latest ai-title from the session transcript (what `claude --resume` shows); falls back to
-            Claude's own session name (cwd + hash) when the transcript has none yet.
+  - title:  the name you gave the session with /rename (the latest custom-title record in its transcript) if
+            any, else the latest ai-title (what `claude --resume` shows); falls back to Claude's own session
+            name (cwd + hash) when the transcript has neither yet.
   - order:  most recently accessed first. "Accessed" is the newer of
               1. when you last focused the pane: the @focus pane option, stamped by the pane-focus-in hook in
                  tmux.conf.local and carried across restarts by claude-resume/save.sh + restore.sh; and
@@ -19,7 +20,7 @@ Used by the C-a C-n popup in tmux.conf.local. One line per session:
             Sessions with neither sort last, alphabetically by title.
 
 Cheap on purpose: one `tmux list-panes -a`, one small JSON read per session, and only the TAIL of each
-transcript (the latest ai-title is always near the end). Titles are cached per transcript (mtime + size)
+transcript (the latest ai-title and custom-title are always near the end). Titles are cached per transcript (mtime + size)
 in ~/.cache, so an unchanged transcript costs a stat().
 
 Sessions are skipped if their process is gone or their pane no longer exists in this tmux server.
@@ -45,6 +46,7 @@ TMUX = shlex.split(os.environ.get("TMUX_CMD", "tmux"))
 
 TAIL_BYTES = (64 * 1024, 1024 * 1024)   # try the last 64KB, then the last 1MB, before giving up
 TITLE_KEY = b'"aiTitle":"'
+CUSTOM_KEY = b'"customTitle":"'                # written by /rename; Claude re-writes it next to the ai-title
 PANE_RE = re.compile(r"%\d+$")
 ID_RE = re.compile(r"^[0-9A-Za-z-]+$")
 RESUME_GRACE_MS = 10_000                 # updatedAt this close to startedAt means "just (re)started", not activity
@@ -119,18 +121,23 @@ def parse_json_string(buf, start):
         return None
 
 
+def last_value(buf, key):
+    """Decoded value of the last `key` record in buf, or None."""
+    i = buf.rfind(key)
+    return parse_json_string(buf, i + len(key)) if i >= 0 else None
+
+
 def read_title(path):
-    """Latest aiTitle in the transcript, reading only its tail. None if there isn't one."""
+    """The session's title, reading only the transcript's tail: the name you gave it with /rename (the latest
+    custom-title record) if there is one, else the latest ai-title. None if there is neither."""
     size = os.path.getsize(path)
     with open(path, "rb") as fh:
         for n in TAIL_BYTES:
             fh.seek(max(0, size - n))
             buf = fh.read()
-            i = buf.rfind(TITLE_KEY)
-            if i >= 0:
-                title = parse_json_string(buf, i + len(TITLE_KEY))
-                if title:
-                    return title
+            title = last_value(buf, CUSTOM_KEY) or last_value(buf, TITLE_KEY)
+            if title:
+                return title
             if n >= size:
                 break
     return None
