@@ -52,11 +52,15 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
 - Claude resume (`claude-resume/`): `save.sh` runs after every resurrect save and records which Claude Code session is
   in which pane (from `~/.claude/sessions/<pid>.json`; needs `jq`). `restore.sh` runs after a restore and types
   `claude --resume <id>` plus the original flags into those panes, and
-  puts each pane's saved last-access time back into `@focus` (for the `C-a C-n` switcher). `@claude-resume-mode`: `run` (default, presses Enter,
+  puts each pane's saved last-access time back into `@focus` (for the `C-a C-n` switcher) and each session's
+  into `@last_access` (for `C-a C-j`). `@claude-resume-mode`: `run` (default, presses Enter,
   staggered) or `type` (leaves Enter to you). Panes that are busy, gone, or whose directory is missing are skipped.
   Logs: `~/.config/tmux-claude-resume/{save,restore}.log`. Preview a restore with `DRY_RUN=1 ~/.config/tmux-claude-resume/restore.sh`.
 - Switcher popups (centred `display-popup` + fzf, so they don't un-zoom the window; tmux >= 3.3):
-  - `C-a C-j`: sessions, most recently used first.
+  - `C-a C-j`: sessions, most recently accessed first. The order is `@last_access`, a stamp the same `pane-focus-in`
+    hook puts on a session whenever you focus a pane in it. It is saved and restored with the Claude snapshot
+    (`session_access_<ts>.tsv`), so it survives a restart; sessions with no stamp yet follow alphabetically. (tmux's own
+    `#{session_activity}` isn't used: it isn't persisted, and a restore recreates every session within seconds.)
   - `C-a C-n`: open Claude Code sessions, most recently accessed first. Each row is `● busy / ○ idle`, the session's
     ai-title (from its transcript; falls back to Claude's own name), `session:window.pane` and the directory.
     Fuzzy-matches all of that; Enter jumps straight to the pane (zoom kept). `claude-switcher/list.py` builds the list

@@ -6,6 +6,7 @@
 # Columns: session  window  pane  sessionId  cwd  last_access  flags
 #   last_access = unix seconds the pane was last used: the newer of its @focus stamp (set by the pane-focus-in
 #   hook) and Claude's last real activity (updatedAt, ignored if within 10s of startedAt, i.e. just a resume).
+#   (Also writes $RESURRECT_DIR/session_access_<ts>.tsv: session<TAB>@last_access, for the C-a C-j switcher.)
 #   restore.sh writes it back to @focus so the C-a C-n switcher keeps its order across a restart. 0 = never.
 # A snapshot with zero sessions never replaces a previous one (e.g. a save on a fresh, empty server).
 #
@@ -97,5 +98,20 @@ if [ "$n" -gt 0 ]; then
   log "saved $n claude sessions (skipped $skipped without transcript) -> $(basename "$out")"
 else
   log "no claude sessions found (skipped $skipped without transcript); kept previous snapshot"
+fi
+
+# Session recency stamps for the C-a C-j switcher: the pane-focus-in hook sets @last_access (unix seconds) on a
+# session whenever you focus a pane in it. Saved next to the Claude snapshot (same timestamp, same retention);
+# restore.sh puts them back. Independent of the Claude snapshot. An empty list never replaces a previous one.
+sa="$RDIR/session_access_${ts}.tsv"; satmp="$(mktemp "$RDIR/.session_access.XXXXXX")"
+tmux list-sessions -F "#{session_name}"$'\t'"#{@last_access}" 2>/dev/null | awk -F'\t' '$2 ~ /^[0-9]+$/ && $2 + 0 > 0' > "$satmp"
+if [ -s "$satmp" ]; then
+  mv "$satmp" "$sa"
+  ln -sf "$(basename "$sa")" "$RDIR/session_access_last.tsv"
+  ls -t "$RDIR"/session_access_2*.tsv 2>/dev/null | tail -n +$((KEEP+1)) | while read -r old; do rm -f "$old"; done
+  log "saved $(wc -l < "$sa" | tr -d ' ') session stamps -> $(basename "$sa")"
+else
+  rm -f "$satmp"
+  log "no session stamps yet; kept previous snapshot"
 fi
 echo "claude sessions saved: $n (skipped $skipped)"

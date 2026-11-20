@@ -5,7 +5,8 @@
 # Mode (tmux option @claude-resume-mode, or env CLAUDE_RESUME_MODE):
 #   run  (default) type the command and press Enter, staggered
 #   type           type the command but leave Enter to you
-# Env: DRY_RUN=1 only prints; CLAUDE_BIN, CLAUDE_MAP, RESURRECT_DIR, CLAUDE_RESUME_STAGGER override defaults.
+# Also restores the switchers' recency stamps: @last_access on sessions (C-a C-j) and @focus on Claude panes (C-a C-n).
+# Env: DRY_RUN=1 only prints; CLAUDE_BIN, CLAUDE_MAP, SESSION_MAP, RESURRECT_DIR, CLAUDE_RESUME_STAGGER override defaults.
 set -u
 
 RDIR="${RESURRECT_DIR:-$HOME/.tmux/resurrect}"
@@ -16,15 +17,41 @@ MODE="${CLAUDE_RESUME_MODE:-$(tmux show -gqv @claude-resume-mode 2>/dev/null)}";
 
 say() { echo "$(date '+%F %T') $*"; }
 
-map="${CLAUDE_MAP:-}"
-if [ -z "$map" ]; then
-  last_target="$(readlink "$RDIR/last" 2>/dev/null || true)"
-  ts="$(basename "${last_target:-x}" .txt)"; ts="${ts#tmux_resurrect_}"
-  if   [ -f "$RDIR/claude_sessions_${ts}.tsv" ]; then map="$RDIR/claude_sessions_${ts}.tsv"
-  elif [ -f "$RDIR/claude_sessions_last.tsv" ];  then map="$RDIR/claude_sessions_last.tsv"
+last_target="$(readlink "$RDIR/last" 2>/dev/null || true)"
+ts="$(basename "${last_target:-x}" .txt)"; ts="${ts#tmux_resurrect_}"
+# The snapshot written for this save (named after resurrect's save timestamp), else its *_last.tsv link.
+pick() {
+  if   [ -f "$RDIR/$1_${ts}.tsv" ]; then echo "$RDIR/$1_${ts}.tsv"
+  elif [ -f "$RDIR/$1_last.tsv" ];  then echo "$RDIR/$1_last.tsv"
   fi
+}
+
+# Focus-wise the restore is over once the saved stamps are back: let the pane-focus-in hook stamp panes again.
+# (It skips stamping while the pre-restore hook's @restoring flag is set, because a restore moves focus through
+# every window; the flag also expires on its own after 5 minutes.)
+end_focus_pause() { [ "$DRY" = 1 ] || tmux set-option -gu @restoring 2>/dev/null; }
+
+# Session stamps (the C-a C-j switcher's order): put each saved @last_access back on its session. Needs no Claude
+# snapshot. Never overwrites a newer stamp.
+smap="${SESSION_MAP:-$(pick session_access)}"
+restored_sessions=0
+if [ -n "$smap" ] && [ -f "$smap" ]; then
+  while IFS=$'\t' read -r sname stamp; do
+    [[ "$stamp" =~ ^[0-9]+$ ]] && [ "$stamp" -gt 0 ] || continue
+    tmux has-session -t "=$sname" 2>/dev/null || continue
+    # (set-option/show-options want "=name:" with the trailing colon; plain "=name" is rejected there)
+    have="$(tmux show-options -qv -t "=$sname:" @last_access 2>/dev/null)"
+    if ! [[ "$have" =~ ^[0-9]+$ ]] || [ "$have" -lt "$stamp" ]; then
+      if [ "$DRY" = 1 ]; then say "would set @last_access=$stamp on session $sname"
+      else tmux set-option -t "=$sname:" @last_access "$stamp"; fi
+      restored_sessions=$((restored_sessions+1))
+    fi
+  done < "$smap"
 fi
-[ -n "$map" ] && [ -f "$map" ] || { say "no claude snapshot found in $RDIR"; exit 0; }
+say "session last-access stamps restored: $restored_sessions"
+
+map="${CLAUDE_MAP:-$(pick claude_sessions)}"
+[ -n "$map" ] && [ -f "$map" ] || { end_focus_pause; say "no claude snapshot found in $RDIR"; exit 0; }
 say "restoring from $(basename "$map") mode=$MODE dry=$DRY"
 
 [ "$DRY" = 1 ] || sleep "${CLAUDE_RESUME_STARTUP_WAIT:-2}"   # let restored shells come up
@@ -53,11 +80,7 @@ while IFS=$'\t' read -r s w p sid cwd last flags; do
   fi
 done < "$map"
 say "last-access stamps restored: $stamped"
-
-# Focus-wise the restore is over: let the pane-focus-in hook stamp panes again. (It skips stamping while the
-# pre-restore hook's @restoring flag is set, because a restore moves focus through every window; the flag also
-# expires on its own.)
-[ "$DRY" = 1 ] || tmux set-option -gu @restoring 2>/dev/null
+end_focus_pause
 
 # Pass 2: resume the Claude sessions.
 ok=0; skip=0

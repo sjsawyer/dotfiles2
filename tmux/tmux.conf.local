@@ -56,8 +56,10 @@ bind C-k switch-client -l
 
 # (shaun) fuzzy session switching (requires fzf)
 # bind-key C-j split-window -v "tmux list-sessions | sed -E 's/:.*$//' | grep -v \"^$(tmux display-message -p '#S')\$\" | fzf --reverse | xargs tmux switch-client -t"
-# Updated to sort by last use
-bind-key C-j display-popup -E -w 60% -h 50% -T ' switch session ' "tmux list-sessions -F '#{session_activity} #{session_name}' |  sort -r -n -k1 |  fzf --reverse --color=gutter:-1 --with-nth 2.. --tiebreak=index | awk '{print $2}' | xargs tmux switch-client -t"
+# Updated to sort by last use. Order = @last_access (stamped on a session by the pane-focus-in hook below, and saved/
+# restored with the Claude snapshot so it survives a restart), newest first; sessions with no stamp yet follow
+# alphabetically. (tmux's own #{session_activity} isn't persisted: a restore recreates every session within seconds.)
+bind-key C-j display-popup -E -w 60% -h 50% -T ' switch session ' "tmux list-sessions -F '#{?@last_access,#{@last_access},0} #{session_name}' |  sort -k1,1nr -k2 |  fzf --reverse --color=gutter:-1 --with-nth 2.. --tiebreak=index | awk '{print $2}' | xargs tmux switch-client -t"
 # Popup (not a split) so it centres over the window and doesn't un-zoom a zoomed pane.
 # --color=gutter:-1 drops fzf's grey left gutter. Popup colours follow the terminal (Solarized) instead of
 # tmux's themedarkgrey default.
@@ -68,13 +70,16 @@ set -g popup-border-style 'bg=default,fg=#586e75'
 # Each line is "<status> <ai title>  <session:win.pane>  <cwd>"; Enter jumps to that pane (-Z keeps zoom).
 # claude-switcher/list.py prints the lines (needs python3 + fzf); field 1 (the pane id) is hidden from fzf.
 bind-key C-n display-popup -E -w 70% -h 60% -T ' 🤖 claude sessions ' "~/.config/tmux-claude-switcher/list.py | fzf --ansi --reverse --color=gutter:-1 --with-nth 2.. --tiebreak=index | awk '{print $1}' | xargs -r tmux switch-client -Zt"
-# Stamp every pane with the time it was last focused (@focus, unix seconds) so that switcher can order by "last
-# accessed". Wall-clock date, because tmux's client_activity goes stale on focus changes that aren't keypresses.
-# Needs focus-events on (oh-my-tmux sets it). The stamp is saved/restored with the Claude snapshot (claude-resume/).
+# Stamp the pane (@focus) and its session (@last_access) with the time they were last focused (unix seconds) so the
+# switchers (C-a C-n for Claude panes, C-a C-j for sessions) can order by "last accessed". Wall-clock date, because
+# tmux's client_activity goes stale on focus changes that aren't keypresses. Needs focus-events on (oh-my-tmux sets
+# it). Both stamps are saved/restored with the Claude snapshot (claude-resume/).
+# Inside this hook #{session_id} etc. resolve to the pane that gained focus (hook_session is NOT defined for pane
+# hooks); #{q:...} shell-escapes the id, because sh would otherwise expand "$3".
 # "|| true": a pane closing mid-hook would otherwise flash an exit status in view mode.
 # Skipped while @restoring is set (see the resurrect pre-restore hook below): a restore moves focus through
 # every window and would otherwise stamp most panes with "now".
-set-hook -g pane-focus-in 'run-shell -b "#{?@restoring,true,tmux set -p -t #{hook_pane} @focus $(date +%s)} || true"'
+set-hook -g pane-focus-in 'run-shell -b "#{?@restoring,true,tmux set -p -t #{hook_pane} @focus $(date +%s); tmux set -t #{q:session_id} @last_access $(date +%s)} || true"'
 
 # (shaun) don't clear history on C-L
 bind -n C-l send-keys C-l \; run 'sleep 0.2'
