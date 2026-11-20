@@ -72,7 +72,9 @@ bind-key C-n display-popup -E -w 70% -h 60% -T ' 🤖 claude sessions ' "~/.conf
 # accessed". Wall-clock date, because tmux's client_activity goes stale on focus changes that aren't keypresses.
 # Needs focus-events on (oh-my-tmux sets it). The stamp is saved/restored with the Claude snapshot (claude-resume/).
 # "|| true": a pane closing mid-hook would otherwise flash an exit status in view mode.
-set-hook -g pane-focus-in 'run-shell -b "tmux set -p -t #{hook_pane} @focus $(date +%s) || true"'
+# Skipped while @restoring is set (see the resurrect pre-restore hook below): a restore moves focus through
+# every window and would otherwise stamp most panes with "now".
+set-hook -g pane-focus-in 'run-shell -b "#{?@restoring,true,tmux set -p -t #{hook_pane} @focus $(date +%s)} || true"'
 
 # (shaun) don't clear history on C-L
 bind -n C-l send-keys C-l \; run 'sleep 0.2'
@@ -508,6 +510,9 @@ set -g allow-rename off
 # (resurrect evals the hook string, so `~` expands there even though tmux doesn't expand it)
 set -g @resurrect-hook-post-save-all    '~/.config/tmux-claude-resume/save.sh'
 set -g @resurrect-hook-post-restore-all '~/.config/tmux-claude-resume/restore.sh >> ~/.config/tmux-claude-resume/restore.log 2>&1 &'
+# Flag a restore for the pane-focus-in hook (near the top) so it doesn't stamp @focus while resurrect moves focus
+# around. restore.sh clears the flag after putting the saved stamps back; it also expires on its own after 5 min.
+set -g @resurrect-hook-pre-restore-all  'tmux set -g @restoring 1; tmux run-shell -b -d 300 "tmux set -gu @restoring"'
 set -g @claude-resume-mode 'run'
 
 # (shaun): resurrect saves took ~3 minutes and pegged the CPU: the default command-capture strategy runs

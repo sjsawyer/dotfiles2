@@ -54,6 +54,11 @@ while IFS=$'\t' read -r s w p sid cwd last flags; do
 done < "$map"
 say "last-access stamps restored: $stamped"
 
+# Focus-wise the restore is over: let the pane-focus-in hook stamp panes again. (It skips stamping while the
+# pre-restore hook's @restoring flag is set, because a restore moves focus through every window; the flag also
+# expires on its own.)
+[ "$DRY" = 1 ] || tmux set-option -gu @restoring 2>/dev/null
+
 # Pass 2: resume the Claude sessions.
 ok=0; skip=0
 while IFS=$'\t' read -r s w p sid cwd last flags; do

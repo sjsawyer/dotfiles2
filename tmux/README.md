@@ -45,7 +45,7 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
 
 - Prefix is `C-a` (`C-b` is unbound). Reload with `C-a r`.
 - Copy mode: `v` selects, plus `iw` / `iW` (word / non-whitespace WORD) as vim-style text objects.
-- Sessions: continuum auto-saves hourly (`@continuum-save-interval '60'`, in minutes; `0` disables). Save manually with `~/.tmux/plugins/tmux-resurrect/scripts/save.sh`, restore with `C-a R` (it also runs automatically when the server starts).
+- Sessions: continuum auto-saves hourly (`@continuum-save-interval '60'`, in minutes; `0` disables). Save manually with `~/.tmux/plugins/tmux-resurrect/scripts/save.sh`, restore with `C-a R` (it also runs automatically when the server starts: continuum only does that if its plugin loads within `@continuum-restore-max-delay` = 60s of the server starting, and oh-my-tmux loads plugins after its git update step). If you restore by hand, run it through the server (`tmux run-shell -b ~/.tmux/plugins/tmux-resurrect/scripts/restore.sh`, which is what the `tmux-restore` shell function does), not as a child of a pane: restore kills the throwaway session `0`, and the script would die with it.
 - Resurrect save strategy: `@resurrect-save-command-strategy 'none'` (`resurrect/none.sh`) skips resurrect's per-pane `ps`,
   which took ~3 minutes for ~180 panes. It loses nothing because panes start via `reattach-to-user-namespace`, so the
   capture only ever saw `-bash`. The script's comments explain how to restore programs like nvim in future.
@@ -65,7 +65,9 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
     when you last focused the pane (a `pane-focus-in` hook stamps the `@focus` pane option; needs `focus-events on`)
     and Claude's last real activity (`updatedAt`, ignored when it only reflects a resume). The stamp is saved with the
     Claude snapshot and put back on restore, so the order survives a tmux restart (as of the last save: hourly or
-    manual). Never-used sessions sort last. It relies on Claude Code's internal session files, so a Claude update
+    manual). Stamping is paused while a restore runs (a resurrect pre-restore hook sets `@restoring`, `restore.sh`
+    clears it, and it expires after 5 min), because a restore moves focus through every window and would stamp
+    most panes with "now". Never-used sessions sort last. It relies on Claude Code's internal session files, so a Claude update
     could break it (unparsable sessions are skipped).
 - Window names: `automatic-rename` is off (oh-my-tmux turns it on), so restored windows keep their saved names.
 - The status bar uses custom variables (`shaundiskfree`, `shauntimeutc`, `shaunfiscalquarter`) defined at the bottom of `tmux.conf.local`.
