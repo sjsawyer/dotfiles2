@@ -58,7 +58,8 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
   `claude --resume <id>` plus the original flags into those panes, and
   puts each pane's saved last-access time back into `@focus` (for the `C-a C-n` switcher) and each session's
   into `@last_access` (for `C-a C-j`). `@claude-resume-mode`: `run` (default, presses Enter,
-  staggered) or `type` (leaves Enter to you). Panes that are busy, gone, or whose directory is missing are skipped.
+  staggered) or `type` (leaves Enter to you). Panes that are busy, gone, or whose directory is missing are skipped. A session parked into a background job is
+  saved under the job's session id (the live conversation, with its `/rename` name), not its client's frozen one.
   Logs: `~/.config/tmux-claude-resume/{save,restore}.log`. Preview a restore with `DRY_RUN=1 ~/.config/tmux-claude-resume/restore.sh`.
 - Switcher popups (centred `display-popup` + fzf, so they don't un-zoom the window; tmux >= 3.3):
   - `C-a C-j`: sessions, most recently accessed first. The order is `@last_access`, a stamp the same `pane-focus-in`

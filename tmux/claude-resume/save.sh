@@ -9,6 +9,8 @@
 #   (Also writes $RESURRECT_DIR/session_access_<ts>.tsv: session<TAB>@last_access, for the C-a C-j switcher.)
 #   restore.sh writes it back to @focus so the C-a C-n switcher keeps its order across a restart. 0 = never.
 # A snapshot with zero sessions never replaces a previous one (e.g. a save on a fresh, empty server).
+# A session parked into a background job (client file has parkedJobId) is recorded under the job's sessionId, the
+# live conversation with its /rename name; the client's own sessionId is frozen at the moment it was parked.
 #
 # Speed: everything is joined in ONE awk pass (ps table + tmux panes + one bulk jq read), so cost scales
 # with the number of Claude sessions, not with the number of tmux panes.
@@ -53,24 +55,30 @@ extract_flags() {
 # Inputs, each gathered with a single command:
 PSTAB="$(ps -axo pid=,ppid=)"                                                       # pid ppid
 PANES="$(tmux list-panes -a -F "#{pane_pid}"$'\t'"#{session_name}"$'\t'"#{window_index}"$'\t'"#{pane_index}"$'\t'"#{@focus}" 2>/dev/null || true)"
-SESS="$(jq -r '[(input_filename | split("/") | last | rtrimstr(".json")), (.sessionId // ""), (.cwd // ""), (.updatedAt // 0), (.startedAt // 0)] | @tsv' \
-          "$SDIR"/*.json 2>/dev/null || true)"                                       # pid sessionId cwd updatedAt startedAt
+SESS="$(jq -r '[(input_filename | split("/") | last | rtrimstr(".json")), (.sessionId // ""), (.cwd // ""), (.updatedAt // 0), (.startedAt // 0), (.parkedJobId // ""), (.jobId // "")] | @tsv' \
+          "$SDIR"/*.json 2>/dev/null || true)"                       # pid sessionId cwd updatedAt startedAt parkedJobId jobId
 PIDS=""; for f in "$SDIR"/*.json; do [ -e "$f" ] || continue; b="${f##*/}"; PIDS+="${b%.json}"$'\n'; done
 
 # Walk each Claude pid up its parent chain to the tmux pane that owns it (first match per pane wins).
 rows="$(awk '
   FILENAME == ARGV[1] { ppid[$1] = $2; next }
   FILENAME == ARGV[2] { split($0, a, "\t"); pane[a[1]] = a[2] "\t" a[3] "\t" a[4]; pfocus[a[1]] = a[5]; next }
-  FILENAME == ARGV[3] { split($0, s, "\t"); info[s[1]] = s[2] "\t" s[3]; upd[s[1]] = s[4]; st[s[1]] = s[5]; next }
-  { p = $1; hops = 0
+  FILENAME == ARGV[3] { split($0, s, "\t"); info[s[1]] = s[2] "\t" s[3]; upd[s[1]] = s[4]; st[s[1]] = s[5]
+                        parked[s[1]] = s[6]; if (s[7] != "") { isjob[s[1]] = 1; jobpid[s[7]] = s[1] }; next }
+  { if ($1 in isjob) next        # a background job never claims a pane itself; its parked client does (below)
+    p = $1; hops = 0
+    # A client parked into a background job keeps its old sessionId in its own file; the live conversation (and any
+    # /rename) is the session of the job, so record that one, as long as the job is still running.
+    q = $1
+    if ((parked[$1] != "") && (parked[$1] in jobpid) && (jobpid[parked[$1]] in ppid)) q = jobpid[parked[$1]]
     while (p != "" && p != 0 && hops++ < 30) {
       if (p in pane) {
         if (!(pane[p] in seen)) {
           seen[pane[p]] = 1
           f = (pfocus[p] ~ /^[0-9]+$/) ? pfocus[p] + 0 : 0                               # last focus stamp
-          r = (($1 in upd) && upd[$1] - st[$1] > 10000) ? int(upd[$1] / 1000) : 0        # real activity, not a resume
+          r = ((q in upd) && upd[q] - st[q] > 10000) ? int(upd[q] / 1000) : 0            # real activity, not a resume
           if (r > f) f = r
-          printf "%s\t%d\t%s\t%s\n", pane[p], f, $1, (($1 in info) ? info[$1] : "\t")
+          printf "%s\t%d\t%s\t%s\n", pane[p], f, $1, ((q in info) ? info[q] : "\t")
         }
         break
       }
