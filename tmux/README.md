@@ -78,6 +78,7 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
     manual). Stamping is paused while a restore runs (a resurrect pre-restore hook sets `@restoring`, `restore.sh`
     clears it, and it expires after 5 min), because a restore moves focus through every window and would stamp
     most panes with "now". Never-used sessions sort last. It relies on Claude Code's internal session files, so a Claude update
-    could break it (unparsable sessions are skipped).
+    could break it (unparsable sessions are skipped). A session parked into a background job is read from the job's
+    session file (its client's `parkedJobId` points there), since the client's own file stays frozen.
 - Window names: `automatic-rename` is off (oh-my-tmux turns it on), so restored windows keep their saved names.
 - The status bar uses custom variables (`shaundiskfree`, `shauntimeutc`, `shaunfiscalquarter`) defined at the bottom of `tmux.conf.local`.

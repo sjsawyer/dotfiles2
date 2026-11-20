@@ -23,6 +23,9 @@ Cheap on purpose: one `tmux list-panes -a`, one small JSON read per session, and
 transcript (the latest ai-title and custom-title are always near the end). Titles are cached per transcript (mtime + size)
 in ~/.cache, so an unchanged transcript costs a stat().
 
+A session parked into a background job (its client file has parkedJobId) is read from the job's session file, which
+holds the live sessionId, name and activity; the pane still comes from the client. See unpark().
+
 Sessions are skipped if their process is gone or their pane no longer exists in this tmux server.
 ~/.claude/sessions is an internal Claude Code format; anything unparsable is ignored, never fatal.
 
@@ -192,18 +195,36 @@ def short_cwd(cwd):
     return cwd if len(cwd) <= CWD_MAX else "…" + cwd[-(CWD_MAX - 1):]
 
 
+def unpark(s, jobs):
+    """A session "parked" into a background job leaves the pane's client file frozen (the old sessionId, idle). The live
+    conversation (its sessionId, /rename name, status and activity) is in the job's own session file, found via the
+    client's parkedJobId. Take those fields from the job; the pane and pid stay the client's."""
+    job = jobs.get(s.get("parkedJobId"))
+    if job and alive(job.get("pid")):
+        return {**s, **{k: job[k] for k in ("sessionId", "name", "status", "startedAt", "updatedAt") if k in job}}
+    return s
+
+
 def main():
     panes = pane_info()
     if not panes:
         return 0
 
-    cache = load_cache()
-    fresh = {}
-    rows = []
+    loaded = []
     for path in glob.glob(f"{SESSIONS_DIR}/*.json"):
         try:
             with open(path) as fh:
-                s = json.load(fh)
+                loaded.append(json.load(fh))
+        except (OSError, ValueError):
+            continue
+    jobs = {s["jobId"]: s for s in loaded if isinstance(s, dict) and s.get("jobId")}
+
+    cache = load_cache()
+    fresh = {}
+    rows = []
+    for s in loaded:
+        try:
+            s = unpark(s, jobs)
             pane = str(s.get("tmux", "")).rsplit(".", 1)[-1]
             if not PANE_RE.match(pane) or pane not in panes or not alive(s.get("pid")):
                 continue
