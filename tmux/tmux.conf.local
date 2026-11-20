@@ -69,10 +69,12 @@ bind-key C-j display-popup -E -w 60% -h 50% -T ' switch session ' "~/.config/tmu
 set -g popup-style 'bg=default,fg=default'
 set -g popup-border-style 'bg=default,fg=#586e75'
 
-# (shaun) fuzzy switcher for open Claude Code sessions (C-a C-n): same popup, listed by last activity.
-# Each line is "<status> <ai title>  <session:win.pane>  <cwd>"; Enter jumps to that pane (-Z keeps zoom).
-# claude-switcher/list.py prints the lines (needs python3 + fzf); field 1 (the pane id) is hidden from fzf.
-bind-key C-n display-popup -E -w 70% -h 60% -T ' 🤖 claude sessions ' "~/.config/tmux-claude-switcher/list.py | fzf --ansi --reverse --color=gutter:-1 --with-nth 2.. --tiebreak=index | awk '{print $1}' | xargs -r tmux switch-client -Zt"
+# (shaun) fuzzy switcher for open Claude Code sessions (C-a C-n): same popup, listed by last access.
+# Each line is "<status> <age> <ai title>  <session:win.pane>  <cwd>"; Enter jumps to that pane (-Z keeps zoom).
+# claude-switcher/list.py prints the lines (needs python3 + fzf); field 1 (the pane id) is hidden from fzf
+# (--with-nth 2..) and --nth 3.. limits the search to title/location/cwd (indices are of the displayed line), so
+# the status mark and the age (now/7m/3h/2d, "-" = no record) aren't searchable.
+bind-key C-n display-popup -E -w 70% -h 60% -T ' 🤖 claude sessions ' "~/.config/tmux-claude-switcher/list.py | fzf --ansi --reverse --color=gutter:-1 --with-nth 2.. --nth 3.. --tiebreak=index | awk '{print $1}' | xargs -r tmux switch-client -Zt"
 # Stamp the pane (@focus) and its session (@last_access) with the time they were last focused (unix seconds) so the
 # switchers (C-a C-n for Claude panes, C-a C-j for sessions) can order by "last accessed". Wall-clock date, because
 # tmux's client_activity goes stale on focus changes that aren't keypresses. Needs focus-events on (oh-my-tmux sets

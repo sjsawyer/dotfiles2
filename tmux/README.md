@@ -67,9 +67,9 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
     `#{session_activity}` isn't used: it isn't persisted, and a restore recreates every session within seconds.)
     Each row shows how long ago you were there (`now`, `7m`, `3h`, `2d`, or `-` when there is no record, so unranked
     sessions are obvious); typing searches names only, not the age. `session-switcher/list.sh` builds the list (~45ms).
-  - `C-a C-n`: open Claude Code sessions, most recently accessed first. Each row is `● busy / ○ idle`, the session's
+  - `C-a C-n`: open Claude Code sessions, most recently accessed first. Each row is `● busy / ○ idle`, how long ago it was last accessed (`now`, `7m`, `3h`, `2d`, `-` = no record), the session's
     ai-title (from its transcript; falls back to Claude's own name), `session:window.pane` and the directory.
-    Fuzzy-matches all of that; Enter jumps straight to the pane (zoom kept). `claude-switcher/list.py` builds the list
+    Fuzzy-matches the title, location and directory (not the age); Enter jumps straight to the pane (zoom kept). `claude-switcher/list.py` builds the list
     in ~0.1s: one `tmux list-panes -a`, `~/.claude/sessions/<pid>.json` for pane/status/last activity, and only the
     tail of each transcript for the title (cached in `~/.cache/tmux-claude-switcher/`). "Accessed" is the newer of
     when you last focused the pane (a `pane-focus-in` hook stamps the `@focus` pane option; needs `focus-events on`)

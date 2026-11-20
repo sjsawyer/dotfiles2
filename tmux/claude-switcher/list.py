@@ -3,9 +3,11 @@
 
 Used by the C-a C-n popup in tmux.conf.local. One line per session:
 
-    <pane_id>  <status> <title>  <session:window.pane>  <cwd>
+    <pane_id>  <status> <age>  <title>  <session:window.pane>  <cwd>
 
   - status: a yellow ● while Claude is working, ○ when idle.
+  - age:    how long ago the session was last accessed (the same value the list is ordered by, see below):
+            now, 7m, 3h, 2d; "-" when there is no record at all. fzf doesn't search it (--nth 3.. in the binding).
   - title:  the latest ai-title from the session transcript (what `claude --resume` shows); falls back to
             Claude's own session name (cwd + hash) when the transcript has none yet.
   - order:  most recently accessed first. "Accessed" is the newer of
@@ -23,7 +25,8 @@ in ~/.cache, so an unchanged transcript costs a stat().
 Sessions are skipped if their process is gone or their pane no longer exists in this tmux server.
 ~/.claude/sessions is an internal Claude Code format; anything unparsable is ignored, never fatal.
 
-Env overrides (for testing): CLAUDE_SESSIONS_DIR, CLAUDE_PROJECTS_DIR, CLAUDE_SWITCHER_CACHE, TMUX_CMD.
+Env overrides (for testing): CLAUDE_SESSIONS_DIR, CLAUDE_PROJECTS_DIR, CLAUDE_SWITCHER_CACHE, TMUX_CMD,
+CLAUDE_SWITCHER_NOW (current time, unix seconds).
 """
 import glob
 import json
@@ -32,6 +35,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 
 HOME = os.path.expanduser("~")
 SESSIONS_DIR = os.environ.get("CLAUDE_SESSIONS_DIR", f"{HOME}/.claude/sessions")
@@ -152,6 +156,20 @@ def save_cache(cache):
         pass
 
 
+def age(ts):
+    """Time since `ts` (unix seconds) as now / 7m / 3h / 2d; '-' when there is no record (ts == 0)."""
+    if ts <= 0:
+        return "-"
+    d = int(os.environ.get("CLAUDE_SWITCHER_NOW") or time.time()) - ts
+    if d < 60:
+        return "now"                          # also covers a stamp slightly in the future (clock skew)
+    if d < 3600:
+        return f"{d // 60}m"
+    if d < 172800:
+        return f"{d // 3600}h"
+    return f"{d // 86400}d"
+
+
 def clean(text):
     return re.sub(r"[\x00-\x1f\x7f]+", " ", text or "").strip()
 
@@ -215,7 +233,8 @@ def main():
     loc_w = max((len(r["loc"]) for r in rows), default=0)
     out = []
     for r in rows:
-        out.append(f"{r['pane']}  {BUSY if r['busy'] else IDLE} "
+        # age is left-aligned and padded: fzf keeps the trailing padding of a field but drops leading padding
+        out.append(f"{r['pane']}  {BUSY if r['busy'] else IDLE} {age(r['accessed']):<4}  "
                    f"{clip(r['title'], title_w):<{title_w}}  {r['loc']:<{loc_w}}  {r['cwd']}")
     sys.stdout.write("\n".join(out) + ("\n" if out else ""))
     return 0
