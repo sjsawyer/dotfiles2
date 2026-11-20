@@ -1,4 +1,9 @@
-# : << EOF
+# : << 'EOF'
+# (shaun): the delimiter is quoted (stock oh-my-tmux has it bare). The status bar variables below run
+# "cut -c3- ~/.tmux.conf.local | sh -s name", which feeds this whole file to sh as a script, and this heredoc
+# swallows everything down to the EOF line. Unquoted, sh also EXPANDED it: every backtick or dollar-paren in the
+# config and comments was executed on every status refresh (clear, ps, date, tmux display-message ...), which cost
+# ~2s per status variable. Quoted, nothing is expanded, so it is safe to write such text in comments.
 # https://github.com/gpakosz/.tmux
 # (‑●‑●)> dual licensed under the WTFPL v2 license and the MIT license,
 #         without any warranty.
