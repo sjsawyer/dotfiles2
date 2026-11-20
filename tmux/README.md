@@ -24,6 +24,10 @@ ln -s -f ~/dotfiles2/tmux/claude-resume/restore.sh ~/.config/tmux-claude-resume/
 # Claude-session switcher popup (C-a C-n; needs python3 and fzf)
 mkdir -p ~/.config/tmux-claude-switcher
 ln -s -f ~/dotfiles2/tmux/claude-switcher/list.py ~/.config/tmux-claude-switcher/list.py
+
+# Session switcher popup (C-a C-j; needs fzf)
+mkdir -p ~/.config/tmux-session-switcher
+ln -s -f ~/dotfiles2/tmux/session-switcher/list.sh ~/.config/tmux-session-switcher/list.sh
 ```
 
 Start `tmux`. tpm installs tmux-resurrect and tmux-continuum on first launch (needs network + git).
@@ -61,6 +65,8 @@ ln -s -f ~/dotfiles2/tmux/resurrect/none.sh ~/.tmux/plugins/tmux-resurrect/save_
     hook puts on a session whenever you focus a pane in it. It is saved and restored with the Claude snapshot
     (`session_access_<ts>.tsv`), so it survives a restart; sessions with no stamp yet follow alphabetically. (tmux's own
     `#{session_activity}` isn't used: it isn't persisted, and a restore recreates every session within seconds.)
+    Each row shows how long ago you were there (`now`, `7m`, `3h`, `2d`, or `-` when there is no record, so unranked
+    sessions are obvious); typing searches names only, not the age. `session-switcher/list.sh` builds the list (~45ms).
   - `C-a C-n`: open Claude Code sessions, most recently accessed first. Each row is `● busy / ○ idle`, the session's
     ai-title (from its transcript; falls back to Claude's own name), `session:window.pane` and the directory.
     Fuzzy-matches all of that; Enter jumps straight to the pane (zoom kept). `claude-switcher/list.py` builds the list
