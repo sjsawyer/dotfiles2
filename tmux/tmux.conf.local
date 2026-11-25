@@ -538,6 +538,10 @@ set -g @claude-resume-mode 'run'
 # nvim in future.
 set -g @resurrect-save-command-strategy 'none'
 
+# (shaun): use MacPorts bash 5.x in panes (macOS ships bash 3.2). Must live in this file: oh-my-tmux sources it
+# BEFORE _apply_configuration, which derives default-command from default-shell. Falls back to /bin/bash if missing.
+if-shell '[ -x /opt/local/bin/bash ]' 'set -g default-shell /opt/local/bin/bash'
+
 # -- custom variables ----------------------------------------------------------
 
 # to define a custom #{foo} variable, define a POSIX shell function between the
