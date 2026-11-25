@@ -1,0 +1,9 @@
+{
+  "snippets.ultisnips.pythonPrompt": false,
+  "pyright.inlayHints.parameterTypes": false,
+  "inlayHint.enable": true,
+  "rust-analyzer.cargo.allFeatures": false,
+  "rust-analyzer.cargo.features": [],
+  "rust-analyzer.check.allFeatures": false,
+  "rust-analyzer.check.features": []
+}
