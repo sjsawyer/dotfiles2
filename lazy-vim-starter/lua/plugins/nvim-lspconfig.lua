@@ -20,6 +20,16 @@ return {
           },
         },
       },
+      -- Python formatting runs through the ruff LSP (not conform). Default to
+      -- single quotes, but let a project's own ruff config take precedence.
+      ruff = {
+        init_options = {
+          settings = {
+            configurationPreference = "filesystemFirst",
+            configuration = { format = { ["quote-style"] = "single" } },
+          },
+        },
+      },
       -- terraformls = {
       --   -- This function tells the LSP server where to find the project root.
       --   root_dir = function(fname)
