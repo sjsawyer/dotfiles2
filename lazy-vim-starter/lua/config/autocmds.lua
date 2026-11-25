@@ -51,6 +51,11 @@ local filetype_settings = {
     pattern = { "*.sql", "*.sqltpl", "*.sql.tftpl" },
     filetype = "sql",
   },
+  -- Grafana Alloy
+  {
+    pattern = "*.alloy",
+    filetype = "hcl",
+  },
 }
 
 -- Default Indent if no filetype is determined
@@ -69,39 +74,37 @@ vim.api.nvim_create_autocmd({ "BufNewFile", "BufRead" }, {
     local current_file = vim.fn.expand("%:t")
 
     for _, settings in ipairs(filetype_settings) do
-      -- Check for each pattern
-      if type(settings.pattern) == "string" then
-        if vim.fn.match(current_file, settings.pattern) ~= -1 then
-          goto found
-        end
-      else
-        for _, pat in ipairs(settings.pattern) do
-          if vim.fn.match(current_file, pat) ~= -1 then
-            goto found
-          end
+      -- Check for each pattern (patterns are globs, e.g. "*.py")
+      local patterns = type(settings.pattern) == "string" and { settings.pattern } or settings.pattern
+      local matched = false
+      for _, pat in ipairs(patterns) do
+        if vim.fn.match(current_file, vim.fn.glob2regpat(pat)) ~= -1 then
+          matched = true
+          break
         end
       end
-      -- If a pattern is found, apply the settings
-      ::found::
-      if settings.textwidth then
-        vim.opt.textwidth = settings.textwidth
-        vim.opt.colorcolumn = tostring(settings.textwidth + 1)
+
+      if matched then
+        if settings.textwidth then
+          vim.opt.textwidth = settings.textwidth
+          vim.opt.colorcolumn = tostring(settings.textwidth + 1)
+        end
+        if settings.wrap ~= nil then
+          vim.opt.wrap = settings.wrap
+        end
+        if settings.filetype then
+          vim.opt.filetype = settings.filetype
+        end
+        if settings.fileformat then
+          vim.opt.fileformat = settings.fileformat
+        end
+        if settings.indent then
+          vim.opt.tabstop = settings.indent
+          vim.opt.softtabstop = settings.indent
+          vim.opt.shiftwidth = settings.indent
+        end
+        return
       end
-      if settings.wrap ~= nil then
-        vim.opt.wrap = settings.wrap
-      end
-      if settings.filetype then
-        vim.opt.filetype = settings.filetype
-      end
-      if settings.fileformat then
-        vim.opt.fileformat = settings.fileformat
-      end
-      if settings.indent then
-        vim.opt.tabstop = settings.indent
-        vim.opt.softtabstop = settings.indent
-        vim.opt.shiftwidth = settings.indent
-      end
-      return
     end
   end,
 })

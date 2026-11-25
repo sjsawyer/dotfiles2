@@ -24,6 +24,11 @@ vim.opt.lazyredraw = true
 vim.opt.scrolloff = 20
 -- Set scrolljump: scroll faster (the number of lines to scroll)
 vim.opt.scrolljump = 2
+-- Stop searching when end of file reached.
+vim.opt.wrapscan = false
 
 -- Disable animations by default (slows down UI)
 vim.g.snacks_animate = false
+
+-- Add pyproject.toml as (the first) root marker.
+vim.g.root_spec = { "lsp", { "pyproject.toml", ".git", "lua" }, "cwd" }
