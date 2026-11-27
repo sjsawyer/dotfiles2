@@ -27,6 +27,9 @@ vim.opt.scrolljump = 2
 -- Stop searching when end of file reached.
 vim.opt.wrapscan = false
 
+-- Don't create swap files
+vim.opt.swapfile = false
+
 -- Disable animations by default (slows down UI)
 vim.g.snacks_animate = false
 
